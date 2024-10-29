@@ -50,11 +50,29 @@ class FlutterWebAuth2Plugin(
                 val intent = CustomTabsIntent.Builder().build()
                 val keepAliveIntent = Intent(context, KeepAliveService::class.java)
                 if (preferEphemeral) {
-                    intent.intent.setPackage("com.android.chrome");
+
+                    val defaultBrowserPackageName = getDefaultBrowserPackageName(context)
+                    if (defaultBrowserPackageName != null) {
+                        println(defaultBrowserPackageName)
+                        intent.intent.setPackage(defaultBrowserPackageName);
+                    } else {
+                        intent.intent.setPackage("com.android.chrome");
+                    }
+                    intent.intent.apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)        // Avoids saving to the activity stack
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)          // Launches in a new task
+                        addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS) // Excludes from recents
+                    }
+
+                } else {
+
+                    intent.intent.addFlags(options["intentFlags"] as Int)
                 }
 
-                intent.intent.addFlags(options["intentFlags"] as Int)
-                intent.intent.putExtra("android.support.customtabs.extra.KEEP_ALIVE", keepAliveIntent)
+                intent.intent.putExtra(
+                    "android.support.customtabs.extra.KEEP_ALIVE",
+                    keepAliveIntent
+                )
 
                 val targetPackage = findTargetBrowserPackageName(options)
                 if (targetPackage != null) {
@@ -72,6 +90,17 @@ class FlutterWebAuth2Plugin(
             }
 
             else -> resultCallback.notImplemented()
+        }
+    }
+
+    fun getDefaultBrowserPackageName(context: Context?): String? {
+        return context?.let { safeContext ->
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://"))
+            val resolveInfo = safeContext.packageManager.resolveActivity(
+                browserIntent,
+                PackageManager.MATCH_DEFAULT_ONLY
+            )
+            resolveInfo?.activityInfo?.packageName
         }
     }
 
